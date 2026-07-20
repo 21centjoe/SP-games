@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pit of Trials</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #020617; color: #e2e8f0; font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-canvas { background: radial-gradient(circle at center, #1e1b4b 0%, #020617 100%); display: block; touch-action: none; cursor: none; width: 100%; height: 100%; }
+        .ui-overlay { position: absolute; top: 20px; left: 20px; pointer-events: none; }
+        .menu-screen { position: absolute; z-index: 10; background: rgba(2, 6, 23, 0.95); width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div id="start-menu" class="menu-screen">
+        <h1 class="text-6xl font-bold text-teal-400 mb-8">The Pit of Trials</h1>
+        <button onclick="startGame()" class="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-full font-bold text-xl shadow-lg border border-teal-400">Begin Trial</button>
+        <button onclick="showContribute()" class="mt-4 text-slate-500 underline">Contribute to Startup</button>
+    </div>
+
+    <div id="contribute-screen" class="menu-screen hidden">
+        <h2 class="text-4xl font-bold text-purple-400 mb-6">Invest in the Future</h2>
+        <a href="#" class="px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-full font-bold mb-4">Fund Our Vision</a>
+        <button onclick="hideContribute()" class="text-slate-500 underline">Back</button>
+    </div>
+
+    <div id="game-over-screen" class="menu-screen hidden">
+        <h2 class="text-5xl font-bold text-red-500 mb-4">The Pit Claims You</h2>
+        <div id="score-summary" class="text-xl text-slate-300 mb-6"></div>
+        <div id="high-score-board" class="bg-slate-800 p-6 rounded-lg mb-8 min-w-[300px]">
+            <h3 class="text-teal-400 font-bold mb-2">High Scores</h3>
+            <div id="high-scores-list" class="text-sm space-y-1"></div>
+        </div>
+        <button onclick="startGame()" class="px-8 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-full font-bold">Try Again</button>
+        <a href="#" class="block mt-6 text-purple-400 underline italic">Visit The Hall of Champions</a>
+    </div>
+
+    <div id="game-ui" class="ui-overlay text-white hidden">
+        <h1 class="text-2xl font-bold text-teal-400" id="level-title">The Pit</h1>
+        <p id="score-display">Score: 0 | Lives: 3 | Coins: 0</p>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const levelTitle = document.getElementById('level-title');
+        
+        let width, height;
+        let player = { x: 0, y: 0, size: 40, icon: '🧙', lives: 3 };
+        let enemies = [];
+        let projectiles = [];
+        let coins = [];
+        let score = 0;
+        let coinsCollected = 0;
+        let gameActive = false;
+        let lastTime = 0;
+        let spawnTimer = 0;
+        let currentLevel = 1;
+
+        const levels = {
+            1: { name: 'The Pit', player: '🧙', enemies: ['🐍', '🕷️', '🐂'] },
+            2: { name: 'Sea Tempest', player: '⛵', enemies: ['🦑', '🦈', '🌊'] },
+            3: { name: 'Pericles vs The King', player: '🏛️', enemies: ['👑', '💂', '⚔️'] }
+        };
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            player.y = height - 100;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function startGame() {
+            player.lives = 3;
+            score = 0;
+            coinsCollected = 0;
+            enemies = [];
+            projectiles = [];
+            coins = [];
+            gameActive = true;
+            document.getElementById('start-menu').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            requestAnimationFrame(update);
+        }
+
+        function update(time) {
+            if (!gameActive) return;
+            const dt = time - lastTime;
+            lastTime = time;
+
+            score += 1;
+            currentLevel = score > 2000 ? 3 : (score > 1000 ? 2 : 1);
+            const config = levels[currentLevel];
+            levelTitle.innerText = config.name;
+            player.icon = config.player;
+
+            spawnTimer += dt;
+            if (spawnTimer > 600) {
+                enemies.push({ x: Math.random() * width, y: -50, speed: 2 + currentLevel, icon: config.enemies[Math.floor(Math.random() * config.enemies.length)] });
+                spawnTimer = 0;
+            }
+
+            // Move projectiles
+            projectiles.forEach((p, i) => {
+                p.y -= 10;
+                if (p.y < 0) projectiles.splice(i, 1);
+            });
+
+            // Move entities
+            enemies.forEach((e, i) => {
+                e.y += e.speed;
+                // Collision with projectiles
+                projectiles.forEach((p, pi) => {
+                    if (Math.hypot(e.x - p.x, e.y - p.y) < 40) {
+                        enemies.splice(i, 1);
+                        projectiles.splice(pi, 1);
+                        coins.push({x: e.x, y: e.y});
+                        score += 50;
+                    }
+                });
+
+                // Collision with player
+                if (Math.hypot(e.x - player.x, e.y - player.y) < 40) {
+                    enemies.splice(i, 1);
+                    player.lives--;
+                    if (player.lives <= 0) gameOver();
+                } else if (e.y > height) {
+                    enemies.splice(i, 1);
+                }
+            });
+
+            // Collection logic
+            coins.forEach((c, i) => {
+                c.y += 3;
+                if (Math.hypot(c.x - player.x, c.y - player.y) < 40) {
+                    coins.splice(i, 1);
+                    coinsCollected++;
+                    if (Math.random() > 0.7) player.lives++;
+                }
+            });
+
+            scoreDisplay.innerText = `Score: ${score} | Lives: ${player.lives} | Coins: ${coinsCollected}`;
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.font = '40px serif';
+            ctx.fillText(player.icon, player.x - 20, player.y + 15);
+            enemies.forEach(e => ctx.fillText(e.icon, e.x - 15, e.y + 10));
+            coins.forEach(c => ctx.fillText('🪙', c.x - 15, c.y + 10));
+            ctx.fillStyle = 'orange';
+            projectiles.forEach(p => ctx.fillText('🔥', p.x - 15, p.y));
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('game-ui').classList.add('hidden');
+            document.getElementById('score-summary').innerText = `Final Score: ${score} | Total Coins: ${coinsCollected}`;
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        window.addEventListener('mousemove', e => player.x = e.clientX);
+        window.addEventListener('keydown', e => { 
+            if (e.code === 'Space') projectiles.push({ x: player.x, y: player.y }); 
+            if (e.code === 'ArrowDown') location.reload();
+        });
+
+        function showContribute() { document.getElementById('start-menu').classList.add('hidden'); document.getElementById('contribute-screen').classList.remove('hidden'); }
+        function hideContribute() { document.getElementById('contribute-screen').classList.add('hidden'); document.getElementById('start-menu').classList.remove('hidden'); }
+    </script>
+</body>
+</html>
