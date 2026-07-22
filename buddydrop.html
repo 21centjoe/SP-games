@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuddyDrop - Ask a Friend at the Show</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            neon: '#22c55e',
+                            accent: '#f43f5e',
+                            gold: '#eab308'
+                        },
+                        watch: {
+                            bg: '#000000',
+                            card: '#121214',
+                            border: '#27272a',
+                            accent: '#3b82f6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-pulse-ring { animation: pulse-ring 2.5s infinite ease-in-out; }
+        .animate-radar { animation: radar-sweep 4s linear infinite; }
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .watch-screen {
+            border-radius: 46px;
+            box-shadow: 0 0 0 12px #18181b, 0 0 0 14px #27272a, 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+        /* Custom scrollbar for watch display */
+        .watch-scroll::-webkit-scrollbar { width: 3px; }
+        .watch-scroll::-webkit-scrollbar-track { background: transparent; }
+        .watch-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-zinc-800/80 bg-zinc-900/60 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                    <i class="fa-solid font-bold fa-bolt text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-400">Buddy<span class="text-brand-500">.Drop</span></span>
+                    <span class="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-medium bg-brand-500/10 text-brand-500 border border-brand-500/20 rounded-full">Real fans helping fans — no gig workers, no middlemen</span>
+                </div>
+            </div>
+
+            <!-- View Switcher -->
+            <div class="flex items-center gap-2 bg-zinc-800/80 p-1 rounded-xl border border-zinc-700/50 text-xs sm:text-sm">
+                <button id="btn-fan-view" onclick="switchView('fan')" class="px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-all bg-brand-600 text-white shadow">
+                    <i class="fa-solid fa-stopwatch mr-1.5"></i> Fan Watch Simulator
+                </button>
+                <button id="btn-runner-view" onclick="switchView('runner')" class="px-3 sm:px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all">
+                    <i class="fa-solid fa-user-group mr-1.5"></i> Buddy View
+                </button>
+                <button id="btn-venue-view" onclick="switchView('venue')" class="px-3 sm:px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all hidden md:inline-block">
+                    <i class="fa-solid fa-chart-line mr-1.5"></i> Crowd Pulse
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Venue Operational Banner -->
+    <section class="bg-gradient-to-r from-zinc-900 via-indigo-950/40 to-zinc-900 border-b border-zinc-800 px-4 py-2.5 text-xs">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-4 text-zinc-300">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-brand-accent"></i> <strong>Venue:</strong> Chase Center - Section 114, Row 8, Seat 12</span>
+                <span class="hidden md:flex items-center gap-1.5"><i class="fa-solid fa-people-arrows text-brand-gold"></i> <strong>Nearest Buddy:</strong> 2 sections over</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-wifi text-brand-neon"></i> <strong>UWB Beacon:</strong> Active (0.3m Accuracy)</span>
+            </div>
+            <div class="flex items-center gap-3 font-mono text-zinc-400">
+                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-neon animate-pulse"></span> 14 Buddies Checked In Nearby</span>
+                <span class="hidden sm:inline">|</span>
+                <span class="hidden sm:inline">Avg Buddy Response: <strong>3.8 mins</strong></span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+        <!-- FAN WATCH SIMULATOR COLUMN -->
+        <div id="fan-column" class="lg:col-span-5 flex flex-col items-center justify-center space-y-6">
+            
+            <!-- Watch Hardware Container -->
+            <div class="relative group">
+                <!-- Outer Ambient Glow -->
+                <div class="absolute -inset-1 bg-gradient-to-r from-brand-500 to-purple-600 rounded-[50px] blur-xl opacity-30 group-hover:opacity-50 transition duration-500"></div>
+
+                <!-- Watch Bezel -->
+                <div class="relative watch-screen w-[320px] h-[390px] sm:w-[350px] sm:h-[430px] bg-black p-4 flex flex-col justify-between overflow-hidden border-4 border-zinc-700">
+                    
+                    <!-- Watch Digital Crown & Buttons Mockup -->
+                    <div class="absolute -right-[15px] top-24 w-3 h-14 bg-zinc-700 rounded-r-md border-l border-zinc-900 cursor-pointer" title="Digital Crown" onclick="simulateHapticScroll()"></div>
+                    <div class="absolute -right-[15px] top-44 w-2 h-10 bg-zinc-800 rounded-r-md border-l border-zinc-900"></div>
+                    <div class="absolute -left-[15px] top-28 w-3 h-16 bg-brand-500 rounded-l-md border-r border-zinc-900 cursor-pointer" title="Action Button" onclick="quickActionTrigger()"></div>
+
+                    <!-- Watch Screen Header -->
+                    <div class="flex items-center justify-between text-xs font-mono text-zinc-400 border-b border-zinc-800/80 pb-2 z-10">
+                        <div id="watch-clock" class="font-bold text-white">20:42</div>
+                        <div class="flex items-center gap-1.5 text-[10px]">
+                            <i class="fa-solid fa-location-crosshairs text-brand-neon"></i>
+                            <span>SEC 114</span>
+                            <i class="fa-solid fa-battery-three-quarters text-zinc-300"></i>
+                        </div>
+                    </div>
+
+                    <!-- Watch Screen Content Views (Dynamic) -->
+                    <div id="watch-body" class="flex-1 overflow-y-auto watch-scroll py-2 px-1 relative z-10">
+                        
+                        <!-- SCREEN 1: FAST ORDER HOME -->
+                        <div id="watch-screen-home" class="space-y-3">
+                            <div class="bg-gradient-to-r from-indigo-950 to-zinc-900 p-2.5 rounded-2xl border border-indigo-500/30 text-center">
+                                <span class="text-[10px] font-semibold tracking-wider text-indigo-300 uppercase block">Ask Someone Nearby</span>
+                                <h4 class="text-sm font-bold text-white">A Fellow Fan Grabs It, Not a Stranger for Hire</h4>
+                            </div>
+
+                            <!-- Fast Categories -->
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="selectCategory('drinks')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-2.5 rounded-2xl text-left transition flex flex-col items-center justify-center text-center">
+                                    <span class="text-2xl mb-1">🍺</span>
+                                    <span class="text-xs font-bold text-zinc-200">A Drink</span>
+                                    <span class="text-[9px] text-zinc-500">Whatever's on tap</span>
+                                </button>
+                                <button onclick="selectCategory('food')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-2.5 rounded-2xl text-left transition flex flex-col items-center justify-center text-center">
+                                    <span class="text-2xl mb-1">🌭</span>
+                                    <span class="text-xs font-bold text-zinc-200">A Snack</span>
+                                    <span class="text-[9px] text-zinc-500">Dogs, Nachos, Burgers</span>
+                                </button>
+                                <button onclick="selectCategory('combos')" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-2.5 rounded-2xl text-left transition flex flex-col items-center justify-center text-center">
+                                    <span class="text-2xl mb-1">🔥</span>
+                                    <span class="text-xs font-bold text-zinc-200">A Bundle</span>
+                                    <span class="text-[9px] text-zinc-500">A few things at once</span>
+                                </button>
+                                <button onclick="promptCustomAsk()" class="bg-gradient-to-tr from-purple-900/40 to-indigo-900/40 hover:from-purple-900/60 border border-purple-500/30 p-2.5 rounded-2xl text-left transition flex flex-col items-center justify-center text-center">
+                                    <span class="text-2xl mb-1">✍️</span>
+                                    <span class="text-xs font-bold text-purple-200">Anything Else</span>
+                                    <span class="text-[9px] text-purple-400">Type your own ask</span>
+                                </button>
+                            </div>
+
+                            <!-- Instant Quick Re-Order Button -->
+                            <button onclick="quickReorder()" class="w-full bg-brand-600 hover:bg-brand-500 active:scale-95 text-white font-bold text-xs py-2.5 px-3 rounded-2xl shadow-lg flex items-center justify-between transition">
+                                <span class="flex items-center gap-1.5">
+                                    <i class="fa-solid fa-bolt text-yellow-300"></i>
+                                    <span>Repeat Last Ask: Beer + Pretzel</span>
+                                </span>
+                                <span class="font-mono">$24.50</span>
+                            </button>
+                        </div>
+
+                        <!-- SCREEN 2: MENU ITEMS SELECTOR -->
+                        <div id="watch-screen-menu" class="hidden space-y-2">
+                            <div class="flex items-center justify-between pb-1 border-b border-zinc-800">
+                                <button onclick="showWatchScreen('home')" class="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
+                                    <i class="fa-solid fa-chevron-left text-[10px]"></i> Back
+                                </button>
+                                <span id="menu-title" class="text-xs font-bold text-white capitalize">Select Items</span>
+                            </div>
+
+                            <div id="menu-items-list" class="space-y-1.5">
+                                <!-- Dynamic Items Injected Here -->
+                            </div>
+                        </div>
+
+                        <!-- SCREEN 3: CHECKOUT & SEAT LOCATION CONFIRMATION -->
+                        <div id="watch-screen-checkout" class="hidden space-y-3">
+                            <div class="text-center">
+                                <span class="text-[10px] text-zinc-400 uppercase tracking-widest">Buddy Drop Request</span>
+                                <h4 class="text-xs font-bold text-white" id="checkout-summary-text">1x Draft Beer, 1x Nachos</h4>
+                            </div>
+
+                            <!-- Seat Beacon Box -->
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-2.5 space-y-1">
+                                <div class="flex items-center justify-between text-[11px]">
+                                    <span class="text-zinc-400">Bring it to:</span>
+                                    <span class="font-mono text-brand-neon font-bold">SEC 114 / R8 / S12</span>
+                                </div>
+                                <div class="flex items-center justify-between text-[10px] text-zinc-500">
+                                    <span>Item cost + tip for your buddy</span>
+                                    <span id="checkout-total-price" class="text-white font-bold">$22.00</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-2 text-[10px] text-indigo-300 flex items-center gap-2">
+                                <i class="fa-solid fa-people-arrows text-brand-500 text-sm"></i>
+                                <span>Goes out to fans nearby — first to accept brings it. No delivery company involved.</span>
+                            </div>
+
+                            <button onclick="placeOrderFromWatch()" class="w-full bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-extrabold text-xs py-3 rounded-2xl shadow-lg active:scale-95 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-fingerprint text-sm"></i>
+                                <span id="checkout-btn-label">SEND ASK ($22.00)</span>
+                            </button>
+                        </div>
+
+                        <!-- SCREEN 4: LIVE RUNNER RADAR & TRACKING -->
+                        <div id="watch-screen-tracking" class="hidden space-y-2 text-center">
+                            <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
+                                <!-- Radar Sweep Animation -->
+                                <div class="absolute inset-0 rounded-full border border-brand-500/20 bg-brand-500/5"></div>
+                                <div class="absolute inset-2 rounded-full border border-brand-500/40"></div>
+                                <div class="absolute inset-6 rounded-full border border-brand-500/60"></div>
+                                <div class="absolute inset-0 rounded-full border-t-2 border-brand-neon animate-radar origin-center"></div>
+                                
+                                <div id="radar-runner-dot" class="absolute top-4 right-6 w-3.5 h-3.5 bg-brand-neon rounded-full border-2 border-black animate-pulse shadow-lg shadow-brand-neon/50"></div>
+                                <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold z-10 shadow">
+                                    <i class="fa-solid fa-chair text-xs"></i>
+                                </div>
+                            </div>
+
+                            <div class="space-y-0.5">
+                                <div class="text-[10px] font-bold tracking-wider text-brand-neon uppercase flex items-center justify-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-brand-neon animate-ping"></span>
+                                    <span id="watch-tracking-status">Buddy Found</span>
+                                </div>
+                                <h4 class="text-xs font-bold text-white" id="watch-runner-name">Marcus, Sec 112 · also into indie rock</h4>
+                                <p class="text-[10px] text-zinc-400" id="watch-eta-text">ETA: ~3 minutes away</p>
+                            </div>
+
+                            <!-- Haptic Vibration Pulse Simulator -->
+                            <div id="watch-haptic-alert" class="hidden bg-brand-neon/20 border border-brand-neon/40 rounded-xl p-1.5 text-[10px] text-brand-neon font-bold animate-bounce">
+                                📳 Your buddy is close — Aisle 114!
+                            </div>
+
+                            <button onclick="simulateRunnerStep()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-[10px] py-1.5 rounded-xl border border-zinc-700 transition">
+                                ⏩ Advance Delivery Step
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- Watch Screen Footer / Haptic Feedback Indicator -->
+                    <div class="border-t border-zinc-800/80 pt-1.5 flex items-center justify-between text-[10px] text-zinc-500 z-10">
+                        <button onclick="showWatchScreen('home')" class="hover:text-zinc-300 transition">
+                            <i class="fa-solid fa-house"></i> Home
+                        </button>
+                        <span id="watch-haptic-status" class="font-mono text-indigo-400 text-[9px]"><i class="fa-solid fa-wifi text-brand-neon"></i> UWB Online</span>
+                        <button onclick="triggerWatchHapticFeedback('Tap')" class="hover:text-zinc-300 transition">
+                            <i class="fa-solid fa-hand-pointer"></i> Touch
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Watch Control Helper Card -->
+            <div class="w-full max-w-sm glass-panel p-4 rounded-2xl border border-zinc-800 space-y-2 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-zinc-200 flex items-center gap-1.5"><i class="fa-solid fa-sliders text-brand-500"></i> Watch Interactive Controls</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono text-[10px]">Simulated Watch OS</span>
+                </div>
+                <p class="text-zinc-400">Click the orange <strong class="text-brand-500">Action Button</strong> on the left side of the watch frame for instant 1-tap re-order, or use the interactive UI on screen.</p>
+                <div class="flex items-center gap-2 pt-1">
+                    <button onclick="quickActionTrigger()" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium py-1.5 px-2 rounded-lg border border-zinc-700 text-center text-[11px] transition">
+                        <i class="fa-solid fa-play text-brand-500 mr-1"></i> Trigger Action Button
+                    </button>
+                    <button onclick="triggerWatchHapticFeedback('Vibrate')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium py-1.5 px-2 rounded-lg border border-zinc-700 text-center text-[11px] transition">
+                        <i class="fa-solid fa-vibrate text-indigo-400 mr-1"></i> Simulate Wrist Haptic
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- STADIUM CONCESSION STAFF PORTAL / DASHBOARD COLUMN -->
+        <div id="main-dashboard-column" class="lg:col-span-7 space-y-6">
+
+            <!-- View 1: Concession Staff Delivery Experience -->
+            <div id="runner-dashboard" class="space-y-4">
+                
+                <!-- Staff Header Bar -->
+                <div class="glass-panel p-4 rounded-2xl border border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80" alt="Staff Avatar" class="w-12 h-12 rounded-xl object-cover border-2 border-brand-500">
+                            <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-neon rounded-full border-2 border-zinc-900"></span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-white text-base">Marcus King</h3>
+                                <span class="bg-brand-500/20 text-brand-400 text-xs px-2 py-0.5 rounded-full font-semibold border border-brand-500/30">Fan at the show • Sec 112</span>
+                            </div>
+                            <p class="text-xs text-zinc-400 flex items-center gap-2 mt-0.5">
+                                <span><i class="fa-solid fa-heart text-brand-gold"></i> Shares 2 interests with you</span>
+                                <span>•</span>
+                                <span>indie rock, tattoos</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 font-mono text-xs">
+                        <div class="bg-zinc-900 p-2 rounded-xl border border-zinc-800 text-right">
+                            <div class="text-zinc-500 text-[10px]">BUDDY RUNS TONIGHT</div>
+                            <div class="text-brand-neon font-bold text-base">3 Runs</div>
+                        </div>
+                        <div class="bg-zinc-900 p-2 rounded-xl border border-zinc-800 text-right">
+                            <div class="text-zinc-500 text-[10px]">MATCHED VIA</div>
+                            <div class="text-white font-bold text-base">Radar</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Stadium Radar & Seat Locator Canvas -->
+                <div class="glass-panel p-5 rounded-2xl border border-zinc-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-bold text-white text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-map-location-dot text-brand-500"></i>
+                                Stadium Navigation & Seat Localization Radar
+                            </h4>
+                            <p class="text-xs text-zinc-400">Real-time UWB Seat Pinpointing & Concourse Pathing</p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full bg-zinc-800 text-brand-neon text-xs font-mono border border-zinc-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-brand-neon animate-pulse"></span>
+                            Live Section 114
+                        </span>
+                    </div>
+
+                    <!-- Stadium Map Canvas Container -->
+                    <div class="relative w-full h-64 bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden flex items-center justify-center p-2">
+                        <!-- Stadium Graphic Overlay -->
+                        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                        
+                        <!-- Stadium Section Layout SVG -->
+                        <svg class="w-full h-full text-zinc-800" viewBox="0 0 500 300">
+                            <!-- Field / Stage -->
+                            <rect x="150" y="10" width="200" height="90" rx="15" fill="#1e1b4b" stroke="#4f46e5" stroke-width="2" />
+                            <text x="250" y="60" text-anchor="middle" fill="#818cf8" font-size="14" font-weight="bold">STAGE / MAIN FIELD</text>
+
+                            <!-- Concourse Corridor -->
+                            <path d="M 30 140 Q 250 110 470 140" fill="none" stroke="#27272a" stroke-width="24" />
+                            <text x="250" y="132" text-anchor="middle" fill="#71717a" font-size="10">CONCOURSE EXPRESS LANE #4</text>
+
+                            <!-- Seating Blocks -->
+                            <rect x="40" y="170" width="120" height="110" rx="10" fill="#18181b" stroke="#27272a" stroke-width="1.5"/>
+                            <text x="100" y="230" text-anchor="middle" fill="#52525b" font-size="12">SEC 112</text>
+
+                            <rect x="190" y="170" width="120" height="110" rx="10" fill="#18181b" stroke="#3f3f46" stroke-width="2"/>
+                            <text x="250" y="210" text-anchor="middle" fill="#a1a1aa" font-size="12" font-weight="bold">SEC 114</text>
+
+                            <rect x="340" y="170" width="120" height="110" rx="10" fill="#18181b" stroke="#27272a" stroke-width="1.5"/>
+                            <text x="400" y="230" text-anchor="middle" fill="#52525b" font-size="12">SEC 116</text>
+
+                            <!-- Concession Stand Icon -->
+                            <g transform="translate(60, 115)">
+                                <circle cx="0" cy="0" r="12" fill="#3b82f6" />
+                                <text x="0" y="4" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="bold">🌭</text>
+                            </g>
+                        </svg>
+
+                        <!-- Dynamic Animated Runner Pin -->
+                        <div id="map-runner-pin" class="absolute left-[80px] top-[115px] transition-all duration-1000 ease-in-out flex flex-col items-center group cursor-pointer z-20">
+                            <div class="px-2 py-0.5 rounded bg-brand-600 text-white text-[9px] font-bold shadow-lg whitespace-nowrap mb-1">
+                                Marcus (Buddy)
+                            </div>
+                            <div class="w-7 h-7 rounded-full bg-brand-500 border-2 border-white flex items-center justify-center text-white text-xs shadow-xl animate-pulse">
+                                <i class="fa-solid fa-person-running"></i>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Animated Target Seat Pin -->
+                        <div id="map-seat-pin" class="absolute left-[250px] top-[220px] flex flex-col items-center z-20">
+                            <div class="px-2 py-0.5 rounded bg-brand-neon text-black text-[9px] font-extrabold shadow-lg whitespace-nowrap mb-1">
+                                SEC 114 - R8 S12
+                            </div>
+                            <div class="relative flex items-center justify-center">
+                                <div class="absolute w-8 h-8 rounded-full bg-brand-neon/30 animate-ping"></div>
+                                <div class="w-7 h-7 rounded-full bg-brand-neon text-black flex items-center justify-center text-xs font-bold shadow-xl border-2 border-zinc-900">
+                                    <i class="fa-solid fa-chair"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Animated Path Line SVG -->
+                        <svg class="absolute inset-0 w-full h-full pointer-events-none z-10">
+                            <path id="map-route-line" d="M 80 115 L 250 115 L 250 220" fill="none" stroke="#22c55e" stroke-width="3" stroke-dasharray="6,6" class="animate-pulse" />
+                        </svg>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs text-zinc-400 bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-route text-brand-neon"></i>
+                            <span>Path Distance: <strong>140 meters</strong></span>
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-stairs text-indigo-400"></i>
+                            <span>Aisle Entry: <strong>Aisle 114 - Stairs B</strong></span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Active Order Dispatch Card -->
+                <div class="glass-panel p-5 rounded-2xl border border-zinc-800 space-y-4">
+                    <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-400 font-mono text-xs font-bold border border-brand-500/30">ORDER #8842</span>
+                                <span class="text-xs text-zinc-400">Placed via Smartwatch 1-Tap</span>
+                            </div>
+                            <h3 class="text-base font-bold text-white mt-1">Section 114, Row 8, Seat 12</h3>
+                        </div>
+                        <div class="text-right font-mono">
+                            <div class="text-sm font-extrabold text-brand-neon">$28.50 Total</div>
+                            <div class="text-xs text-brand-gold"><i class="fa-solid fa-coins mr-1"></i>$6.00 Tip, straight to Marcus</div>
+                        </div>
+                    </div>
+
+                    <!-- Items List -->
+                    <div class="space-y-2 text-xs">
+                        <div class="text-zinc-400 font-bold tracking-wider uppercase text-[10px]">What to grab:</div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div class="bg-zinc-900/80 p-2.5 rounded-xl border border-zinc-800 flex items-center justify-between">
+                                <span class="font-bold text-white flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-xs">🍺</span>
+                                    2x Ballpark Craft IPA
+                                </span>
+                                <span class="text-zinc-500">24 oz</span>
+                            </div>
+                            <div class="bg-zinc-900/80 p-2.5 rounded-xl border border-zinc-800 flex items-center justify-between">
+                                <span class="font-bold text-white flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-xs">🥨</span>
+                                    1x Bavarian Salted Pretzel
+                                </span>
+                                <span class="text-zinc-500">Extra Cheese</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delivery Workflow Controller -->
+                    <div class="bg-zinc-900 p-3 rounded-xl border border-zinc-800 space-y-2">
+                        <div class="flex items-center justify-between text-xs font-medium">
+                            <span class="text-zinc-400">Delivery Status Workflow:</span>
+                            <span id="runner-current-step-label" class="text-brand-neon font-bold">1. Marcus picked it up</span>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="step-btn-1" onclick="advanceDeliveryStep(1)" class="bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs py-2 rounded-lg transition shadow">
+                                1. Pickup Items
+                            </button>
+                            <button id="step-btn-2" onclick="advanceDeliveryStep(2)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs py-2 rounded-lg transition border border-zinc-700">
+                                2. Walking to Seat
+                            </button>
+                            <button id="step-btn-3" onclick="advanceDeliveryStep(3)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs py-2 rounded-lg transition border border-zinc-700">
+                                3. Handed Off & Tap
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- View 2: Concession Hub Overview (Hidden by default, toggled via header) -->
+            <div id="venue-dashboard" class="hidden space-y-4">
+                <div class="glass-panel p-5 rounded-2xl border border-zinc-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Tonight in the Crowd</h3>
+                            <p class="text-xs text-zinc-400">How the buddy network is doing at this show</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full bg-brand-neon/20 text-brand-neon border border-brand-neon/30 text-xs font-bold">
+                            Peer-to-Peer, No Middlemen
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div class="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                            <div class="text-zinc-500 text-xs">OPEN ASKS</div>
+                            <div class="text-white font-bold text-xl mt-1">2 Asks</div>
+                        </div>
+                        <div class="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                            <div class="text-zinc-500 text-xs">AVG BUDDY RESPONSE</div>
+                            <div class="text-brand-neon font-bold text-xl mt-1">42 secs</div>
+                        </div>
+                        <div class="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                            <div class="text-zinc-500 text-xs">RUNS TONIGHT</div>
+                            <div class="text-indigo-400 font-bold text-xl mt-1">128 Runs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gemini AI Craving Assistant Widget -->
+            <div class="glass-panel p-5 rounded-2xl border border-purple-500/30 space-y-3 relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-purple-600/10 rounded-full blur-2xl"></div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">✨</span>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">Craving Assist</h4>
+                            <p class="text-xs text-purple-300">Quick suggestions for what to ask your buddy to grab</p>
+                        </div>
+                    </div>
+                    <button onclick="getGeminiStadiumSuggestion()" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Generate Recommendation</span>
+                    </button>
+                </div>
+
+                <div id="gemini-response-box" class="bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800 text-xs text-zinc-300 space-y-2">
+                    <p class="text-zinc-400 italic">"Click 'Generate Recommendation' to test Gemini AI analyzing current game time (7th Inning Stretch), ambient stadium temperature (78°F), and setlist timing..."</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Custom Toast Notification System -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4"></div>
+
+    <script>
+        // --- APPLICATION STATE ---
+        const state = {
+            currentScreen: 'home',
+            activeCategory: 'drinks',
+            orderStep: 1, // 1: Picked Up, 2: Walking, 3: Delivered
+            cart: [],
+            total: 0,
+            activeView: 'fan',
+            runnerLocationIndex: 0,
+            // Predefined Stadium Menu Items (From Local Venue Concession Stands)
+            menuData: {
+                drinks: [
+                    { id: 'd1', name: 'Craft IPA', price: 12.50, emoji: '🍺', desc: 'Nearest bar has it on tap' },
+                    { id: 'd2', name: 'Hard Seltzer', price: 11.00, emoji: '🥤', desc: 'Black Cherry / Lime' },
+                    { id: 'd3', name: 'Souvenir Soda Refill', price: 7.50, emoji: '🥤', desc: '32oz, bring the cup back' }
+                ],
+                food: [
+                    { id: 'f1', name: 'Classic Hot Dog', price: 9.50, emoji: '🌭', desc: 'All-beef, from the grill stand' },
+                    { id: 'f2', name: 'Loaded Nachos', price: 13.00, emoji: '🧀', desc: 'Extra cheese' },
+                    { id: 'f3', name: 'Bacon Burger', price: 15.50, emoji: '🍔', desc: 'Double patty' }
+                ],
+                combos: [
+                    { id: 'c1', name: 'Beer + Pretzel Run', price: 24.50, emoji: '🔥', desc: '2x Craft IPA + Pretzel' },
+                    { id: 'c2', name: 'Whole Row Snack Run', price: 32.00, emoji: '🎉', desc: '2x Dogs, 2x Sodas, Nachos' }
+                ]
+            }
+        };
+
+        // --- CLOCK UPDATE ---
+        function updateWatchClock() {
+            const now = new Date();
+            const hrs = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const clockEl = document.getElementById('watch-clock');
+            if (clockEl) clockEl.textContent = `${hrs}:${mins}`;
+        }
+        setInterval(updateWatchClock, 1000);
+        updateWatchClock();
+
+        // --- VIEW SWITCHING LOGIC ---
+        function switchView(viewName) {
+            state.activeView = viewName;
+            
+            // Header button styling
+            document.getElementById('btn-fan-view').className = viewName === 'fan' 
+                ? 'px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-all bg-brand-600 text-white shadow'
+                : 'px-3 sm:px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all';
+            
+            document.getElementById('btn-runner-view').className = viewName === 'runner' 
+                ? 'px-3 sm:px-4 py-1.5 rounded-lg font-medium transition-all bg-brand-600 text-white shadow'
+                : 'px-3 sm:px-4 py-1.5 rounded-lg font-medium text-zinc-400 hover:text-white transition-all';
+
+            // Show/Hide Dashboard Sections
+            const runnerDash = document.getElementById('runner-dashboard');
+            const venueDash = document.getElementById('venue-dashboard');
+
+            if (viewName === 'venue') {
+                runnerDash.classList.add('hidden');
+                venueDash.classList.remove('hidden');
+            } else {
+                runnerDash.classList.remove('hidden');
+                venueDash.classList.add('hidden');
+            }
+
+            showToast(`Switched to ${viewName.toUpperCase()} view mode`, 'info');
+        }
+
+        // --- WATCH SCREEN NAVIGATION ---
+        function showWatchScreen(screenId) {
+            state.currentScreen = screenId;
+            document.getElementById('watch-screen-home').classList.add('hidden');
+            document.getElementById('watch-screen-menu').classList.add('hidden');
+            document.getElementById('watch-screen-checkout').classList.add('hidden');
+            document.getElementById('watch-screen-tracking').classList.add('hidden');
+
+            const targetScreen = document.getElementById(`watch-screen-${screenId}`);
+            if (targetScreen) targetScreen.classList.remove('hidden');
+
+            triggerWatchHapticFeedback('Click');
+        }
+
+        function selectCategory(catKey) {
+            state.activeCategory = catKey;
+            document.getElementById('menu-title').textContent = catKey;
+            
+            const listContainer = document.getElementById('menu-items-list');
+            listContainer.innerHTML = '';
+
+            const items = state.menuData[catKey] || [];
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-xl text-left transition flex items-center justify-between';
+                btn.onclick = () => selectItemForCheckout(item);
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">${item.emoji}</span>
+                        <div>
+                            <div class="text-xs font-bold text-white">${item.name}</div>
+                            <div class="text-[9px] text-zinc-500">${item.desc}</div>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-brand-neon">$${item.price.toFixed(2)}</span>
+                `;
+                listContainer.appendChild(btn);
+            });
+
+            showWatchScreen('menu');
+        }
+
+        function selectItemForCheckout(item) {
+            state.cart = [item];
+            state.total = item.price + 4.00; // Includes $4 tip
+            document.getElementById('checkout-summary-text').textContent = `${item.emoji} ${item.name}`;
+            document.getElementById('checkout-total-price').textContent = `$${state.total.toFixed(2)}`;
+            const btnLabel = document.getElementById('checkout-btn-label');
+            if (btnLabel) btnLabel.textContent = `SEND ASK ($${state.total.toFixed(2)})`;
+            showWatchScreen('checkout');
+        }
+
+        function quickReorder() {
+            const combo = state.menuData.combos[0];
+            selectItemForCheckout(combo);
+        }
+
+        // --- CUSTOM "ANYTHING ELSE" BUDDY ASK ---
+        // Lets a fan type a request that isn't on the quick-tap menu
+        // (a phone charger, help finding a lost friend's seat, whatever)
+        // plus their own tip amount, instead of only picking from a
+        // fixed item list.
+        function promptCustomAsk() {
+            const description = window.prompt("What do you need? (e.g. 'phone charger for 10 min')");
+            if (!description) return;
+            const tipInput = window.prompt("Tip amount in dollars?", "5");
+            const tip = parseFloat(tipInput);
+            const customItem = {
+                id: 'custom-' + Date.now(),
+                name: description,
+                price: isNaN(tip) ? 5 : Math.max(1, tip),
+                emoji: '🙋',
+                desc: 'Custom ask'
+            };
+            // Custom asks are tip-only (no separate item cost baked in),
+            // so skip the automatic +$4 tip selectItemForCheckout adds.
+            state.cart = [customItem];
+            state.total = customItem.price;
+            document.getElementById('checkout-summary-text').textContent = `🙋 ${description}`;
+            document.getElementById('checkout-total-price').textContent = `$${state.total.toFixed(2)}`;
+            const btnLabel = document.getElementById('checkout-btn-label');
+            if (btnLabel) btnLabel.textContent = `SEND ASK ($${state.total.toFixed(2)})`;
+            showWatchScreen('checkout');
+        }
+
+        function quickActionTrigger() {
+            triggerWatchHapticFeedback('Double Pulse');
+            showToast('⚡ Watch Action Button Pressed!', 'warning');
+            if (state.currentScreen === 'home') {
+                quickReorder();
+            } else if (state.currentScreen === 'checkout') {
+                placeOrderFromWatch();
+            } else {
+                showWatchScreen('home');
+            }
+        }
+
+        function placeOrderFromWatch() {
+            triggerWatchHapticFeedback('Success Heavy Pulse');
+            showWatchScreen('tracking');
+            showToast('🎉 Ask sent out to buddies nearby!', 'success');
+            
+            // Sync with Buddy View
+            advanceDeliveryStep(1);
+        }
+
+        // --- WATCH HAPTIC FEEDBACK SIMULATOR ---
+        function triggerWatchHapticFeedback(type) {
+            const statusEl = document.getElementById('watch-haptic-status');
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-brand-neon font-bold animate-pulse">📳 ${type} Vibrated</span>`;
+                setTimeout(() => {
+                    statusEl.innerHTML = `<i class="fa-solid fa-wifi text-brand-neon"></i> UWB Online`;
+                }, 1500);
+            }
+        }
+
+        function simulateHapticScroll() {
+            triggerWatchHapticFeedback('Crown Tick');
+        }
+
+        // --- RUNNER DELIVERY WORKFLOW CONTROLLER ---
+        function advanceDeliveryStep(stepNumber) {
+            state.orderStep = stepNumber;
+            const runnerLabel = document.getElementById('runner-current-step-label');
+            const watchStatus = document.getElementById('watch-tracking-status');
+            const watchEta = document.getElementById('watch-eta-text');
+            const mapPin = document.getElementById('map-runner-pin');
+            const hapticAlert = document.getElementById('watch-haptic-alert');
+
+            // Reset step button styles
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`step-btn-${i}`);
+                if (btn) {
+                    if (i === stepNumber) {
+                        btn.className = "bg-brand-600 text-white font-bold text-xs py-2 rounded-lg shadow border border-brand-400 transition";
+                    } else if (i < stepNumber) {
+                        btn.className = "bg-zinc-800 text-brand-neon font-bold text-xs py-2 rounded-lg border border-brand-neon/30 transition";
+                    } else {
+                        btn.className = "bg-zinc-900 text-zinc-500 font-bold text-xs py-2 rounded-lg border border-zinc-800 transition";
+                    }
+                }
+            }
+
+            if (stepNumber === 1) {
+                if (runnerLabel) runnerLabel.textContent = "1. Marcus picked it up";
+                if (watchStatus) watchStatus.textContent = "Buddy Has It";
+                if (watchEta) watchEta.textContent = "Marcus is heading your way (~3 mins)";
+                if (mapPin) {
+                    mapPin.style.left = "80px";
+                    mapPin.style.top = "115px";
+                }
+                if (hapticAlert) hapticAlert.classList.add('hidden');
+            } else if (stepNumber === 2) {
+                if (runnerLabel) runnerLabel.textContent = "2. Marcus is en route to Sec 114";
+                if (watchStatus) watchStatus.textContent = "Buddy in Section 114";
+                if (watchEta) watchEta.textContent = "Entering Aisle 114 (~30 seconds)";
+                if (mapPin) {
+                    mapPin.style.left = "250px";
+                    mapPin.style.top = "155px";
+                }
+                if (hapticAlert) {
+                    hapticAlert.classList.remove('hidden');
+                    triggerWatchHapticFeedback('Proximity Alert');
+                }
+            } else if (stepNumber === 3) {
+                if (runnerLabel) runnerLabel.textContent = "3. Handed off — tip sent!";
+                if (watchStatus) watchStatus.textContent = "Delivered & Enjoy!";
+                if (watchEta) watchEta.textContent = "Enjoy the show! Tip sent to Marcus.";
+                if (mapPin) {
+                    mapPin.style.left = "250px";
+                    mapPin.style.top = "220px";
+                }
+                if (hapticAlert) hapticAlert.classList.add('hidden');
+                triggerWatchHapticFeedback('Order Complete');
+                showToast('✅ Marcus dropped it off at Section 114 Row 8 Seat 12!', 'success');
+            }
+        }
+
+        function simulateRunnerStep() {
+            let nextStep = state.orderStep + 1;
+            if (nextStep > 3) nextStep = 1;
+            advanceDeliveryStep(nextStep);
+        }
+
+        // --- GEMINI API INTEGRATION ---
+        async function getGeminiStadiumSuggestion() {
+            const responseBox = document.getElementById('gemini-response-box');
+            responseBox.innerHTML = `
+                <div class="flex items-center gap-2 text-purple-400">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <span>Gemini is analyzing stadium context (7th inning stretch, ambient temperature 78°F)...</span>
+                </div>
+            `;
+
+            const systemPrompt = "You are a smart concourse recommendation AI for stadium smartwatches. Suggest 2 ideal food/drink items for a fan at a ball game based on the prompt, in under 40 words.";
+            const userQuery = "It is currently the 7th Inning Stretch, warm summer evening at Chase Center. Recommend a fast refreshing combo to order from a smartwatch.";
+
+            const apiKey = ""; // Canvas runtime injection
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+
+                const data = await response.json();
+                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Enjoy an Ice-Cold Ballpark IPA and Crispy Nachos to power through the 9th inning!";
+                
+                responseBox.innerHTML = `
+                    <div class="text-purple-200 font-semibold mb-1">✨ Gemini Recommendation:</div>
+                    <p class="text-zinc-200">${aiText}</p>
+                    <button onclick="quickReorder()" class="mt-2 text-xs font-bold text-brand-neon hover:underline flex items-center gap-1">
+                        <span>Tap to Order Recommendation on Watch</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                `;
+            } catch (err) {
+                // Fallback demo response if network/key throttled
+                responseBox.innerHTML = `
+                    <div class="text-purple-200 font-semibold mb-1">✨ Gemini Recommendation (Cached):</div>
+                    <p class="text-zinc-200">"Warm 78°F night! Best fit: <strong>2x Ice-Cold Draft Beers & Loaded Queso Nachos</strong> for express delivery before the top of the 8th."</p>
+                    <button onclick="quickReorder()" class="mt-2 text-xs font-bold text-brand-neon hover:underline flex items-center gap-1">
+                        <span>Tap to Order Recommendation on Watch</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                `;
+            }
+        }
+
+        function askGeminiRecommendation() {
+            showToast('✨ Querying Gemini for watch recommendation...', 'info');
+            getGeminiStadiumSuggestion();
+        }
+
+        // --- TOAST NOTIFICATIONS HELPER ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgBorder = 'bg-zinc-900/90 border-zinc-700 text-white';
+            let icon = 'fa-circle-info text-blue-400';
+
+            if (type === 'success') {
+                bgBorder = 'bg-zinc-900/95 border-brand-neon/50 text-white';
+                icon = 'fa-circle-check text-brand-neon';
+            } else if (type === 'warning') {
+                bgBorder = 'bg-zinc-900/95 border-brand-gold/50 text-white';
+                icon = 'fa-bolt text-brand-gold';
+            }
+
+            toast.className = `p-3 rounded-xl border ${bgBorder} shadow-2xl backdrop-blur-md text-xs font-medium flex items-center gap-2.5 transition-all duration-300 transform translate-y-2 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i> <span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
